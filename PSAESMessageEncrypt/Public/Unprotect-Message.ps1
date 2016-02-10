@@ -2,58 +2,87 @@
     [CmdletBinding()]
     Param (
         # Parameter Message
-        [Parameter(Mandatory=$true)]
-        [String]
+        [Parameter(Mandatory=$true,
+                   ValueFromPipeline=$true)]
+        [String[]]
         $Message,
-        # Parameter FeedbackSize
-        $FeedbackSize,
-        # Parameter $IV
-        $IV = [Byte[]] @(0..15),
         # Parameter Key
         [Parameter(Mandatory=$true)]
+        [Byte[]]
         $Key,
-        # Paramater KeySize
-        $KeySize,
+        # Parameter $IV
+        [Byte[]]
+        $InitializationVector,
+        # Paramter BlockSize
+        $BlockSize = 128,
         # Parameter Mode
         [ValidateSet('CBC','ECB','OFB','CFB','CTS')]
         [String] $Mode = 'ECB',
         # Parameter Padding
         [ValidateSet('None','PKCS7','Zeros','ANSIX923','ISO10126')]
-        [String] $Padding = 'None',
-        # Paramter BlockSize
-        $BlockSize,
+        [String] $Padding = 'PKCS7',
         # Parameter Base64
         [Switch]
         $Base64
     )
     Begin {
-        $AES = New-Object "System.Security.Cryptography.AesManaged" -Property @{
-            FeedbackSize = $FeedbackSize
-            IV = $IV
-            Key = $Key
-            KeySize = $KeySize
+        # Create AESManaged Object
+        $AES = New-Object 'System.Security.Cryptography.AesManaged' -Property @{
             Mode = [System.Security.Cryptography.CipherMode]::$Mode
             Padding = [System.Security.Cryptography.PaddingMode]::$Padding
-            BlockSize = 128
         }
+
+        # Confirm BlockSize is valid for the mode
+        if ( $BlockSize -le $AES.LegalBlockSizes.MinSize -and $BlockSize -gt $AES.LegalBlockSizes.MaxSize ) {
+            Write-Error "BlockSize is not valid for this mode."
+            $AES.Dispose()
+            return
+        } else {
+            # Passed, set values
+            $AES.BlockSize = $BlockSize
+        }
+
+        # If no IV provided, use array of 1 through number of entries in $Key
+        # If no IV is provided for both protect and unprotect, functionality will still work
+        if ( $InitializationVector -eq $null ) { 
+            $InitializationVector = @(1..$Key.Count)
+        }
+        
+        # Key keysizes in bits
+        $KeySize = $Key.Count * 8
+        $InitializationVectorSize = $InitializationVector.Count * 8
+
+        # Confirm that Key and IV size are the same
+        if ( $KeySize -ne $InitializationVectorSize ) {
+            Write-Error "KeySize does not match IVSize. Exiting."
+            $AES.Dispose()
+            return
+        }
+
+        # Check for valid key size
+        if ( $KeySize -le $AES.LegalKeySizes.MinSize -and $KeySize -gt $AES.LegalKeySizes.MaxSize ) {
+            Write-Error "KeySize is not valid for this mode."
+            $AES.Dispose()
+            return
+        } else {
+            # Passed, set values
+            $AES.Key = $Key
+            $AES.IV = $InitializationVector
+        }
+
+        # Create encryptor once values are set
+        $Decryptor = $AES.CreateDecryptor()
     }
     Process {
-        if ( $Base64 ) {
-            $EncryptedMessage = [System.Convert]::FromBase64String($Message)
-        } else {
-            $EncryptedMessage = $Message
+        foreach ( $M in $Message ) {
+            $EncryptedMessage = [System.Convert]::FromBase64String($M)
+            $UnencryptedMessage = $Decryptor.TransformFinalBlock($EncryptedMessage, 0, $EncryptedMessage.Length);
+            $UnencryptedMessage = [System.Text.Encoding]::UTF8.GetString($UnencryptedMessage).Trim([char]0)
+            Write-Output $UnencryptedMessage
         }
-
-        $bytes = [System.Convert]::FromBase64String($encryptedStringWithIV)
-        $IV = $bytes[0..15]
-        $aesManaged = Create-AesManagedObject $key $IV
-        $decryptor = $aesManaged.CreateDecryptor();
-        $unencryptedData = $decryptor.TransformFinalBlock($bytes, 16, $bytes.Length - 16);
-        $aesManaged.Dispose()
-        [System.Text.Encoding]::UTF8.GetString($unencryptedData).Trim([char]0)
-
     }
     End {
+        $Decryptor.Dispose()
         $AES.Dispose()
     }
 }
