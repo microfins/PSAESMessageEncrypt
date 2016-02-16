@@ -1,4 +1,14 @@
 ﻿function Protect-Message {
+<#
+.Synopsis
+   Encyrpts a message
+.DESCRIPTION
+   Encrypts a message when a string, key, and initialization vector are provided. 
+.EXAMPLE
+   Protect-Message -Message 'This is a message' -Key @(0..15) -InitializationVector @(16..31)
+.Notes
+    (c) 2016 Shawn Esterman. All rights reserved.
+#>  
     [CmdletBinding()]
     Param (
         # Parameter Message

@@ -1,4 +1,14 @@
 ﻿function New-PaddedKeyFromString {
+<#
+.Synopsis
+   Turns string into byte array
+.DESCRIPTION
+   Turns string into byte array and pads it with the number of bytes specified
+.EXAMPLE
+   New-PaddedKeyFromString -String 'TestString' -Bytes 16
+.Notes
+    (c) 2016 Shawn Esterman. All rights reserved.
+#>    
     [CmdletBinding()]
     Param (
         # Parameter Message

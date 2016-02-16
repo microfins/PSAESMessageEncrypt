@@ -1,4 +1,14 @@
 ﻿function Unprotect-Message {
+<#
+.Synopsis
+   Unencyrpts a message
+.DESCRIPTION
+   Unencrypts a base64 message when a string, key, and initialization vector are provided. 
+.EXAMPLE
+   Unprotect-Message -Message 'yDqG4hBLvxEeWXO8oTS4B9tTHRygrIsxucDzcIgqJBY=' -Key @(0..15) -InitializationVector @(16..31)
+.Notes
+    (c) 2016 Shawn Esterman. All rights reserved.
+#>       
     [CmdletBinding()]
     Param (
         # Parameter Message
